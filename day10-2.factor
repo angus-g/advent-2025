@@ -1,3 +1,5 @@
+USING: arrays columns kernel math math.matrices math.parser
+prettyprint sequences splitting ;
 IN: day10-2
 
 ! minimise c^T x, where Ax = b
@@ -125,17 +127,56 @@ IN: day10-2
 : unclip-ends ( seq -- last mid first )
   unclip [ unclip-last swap ] dip ;
 
-: parse-matrix ( seq -- A ) ;
+: fill-column ( seq n -- col )
+  <iota> swap [ member? 1 0 ? ] curry map ;
 
-: parse-goal ( str -- b );
+: parse-seq ( str -- seq )
+  unclip-ends drop nip "," split [ string>number ] map ;
 
-: build-tableau ( A b -- tableau ) ;
+: parse-matrix ( seq -- A )
+  unclip length 2 -
+  [ [ parse-seq ] dip fill-column ] curry map flip ;
 
-! parse a line with format
-! [.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
-! into a non-canonical tableau
-: parse-line ( str -- tableau )
+: parse-line ( str -- A b )
   " " split
-  unclip-ends
-  [ drop ] [ parse-matrix ] [ parse-goal ] tri*
-  build-tableau ;
+  unclip-last
+  [ parse-matrix ] [ parse-seq ] bi* ;
+
+: identity-col ( n rows -- col )
+  <iota> [ = 1 0 ? ] with map ;
+
+: identity-col? ( matrix n -- idx/? )
+  over dimension second identity-col
+  swap [ sequence= ] with find drop ;
+
+! fill the index set corresponding to constraint matrix
+! A with indices of columns of the indentity matrix
+: basic-indices ( A -- idx )
+  <flipped> dup dimension second ! number of rows
+  <iota> [ identity-col? ] with map ;
+
+! the first row contains { 1 -1 ... -1 0 }
+! prepend 0 to all rows of A
+! and append entries of b
+: build-tableau ( A b -- tableau )
+  over dimension second -1 <array> { 1 } { 0 } surround
+  [ [ 0 [ suffix ] dip prefix ] 2map ] dip
+  prefix ;
+
+! columns are { -1 0 <identity(n)> }
+: basic-cols ( idx -- cols )
+  [ length ] keep
+  [ ] with map-harvest ;
+
+! insert identity columns corresponding to the f entries of
+! idx before the last column
+! then the first row is { 1 0 ... 0 -1 ... -1 0 }
+! and again prepend all rows with 0
+: augment-tableau ( idx tableau -- augmented )
+swap basic-cols
+;
+
+"[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"
+parse-line
+[ dup basic-indices ] dip swapd
+build-tableau
