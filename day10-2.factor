@@ -1,5 +1,6 @@
-USING: arrays columns kernel math math.matrices math.parser
-math.vectors prettyprint ranges sequences sets splitting ;
+USING: arrays columns formatting kernel math math.matrices
+math.parser math.vectors prettyprint ranges sequences
+sequences.extras sets splitting ;
 IN: day10-2
 
 ! minimise c^T x, where Ax = b
@@ -199,7 +200,9 @@ IN: day10-2
   [
     [ count-gaps [ [ + ] [ drop f ] if* ] with map ] keep
     [ or ] 2map
-  ] 2bi* ;
+  ] 2bi*
+  ! XXX add augmented rows to first row
+  ;
 
 ! get the next position in the index set corresponding to an auxiliary variable
 : next-auxiliary ( idx n -- n/f )
@@ -214,18 +217,30 @@ IN: day10-2
   n 2 + [ swap nth 1 = ] curry find drop
   nonbasic nth ;
 
+! entry is a pair of { row-idx pivot-value }
+: eliminate-row ( tableau entry pivot-idx -- tableau )
+  [ first2 ] dip ! ( tableau elim-idx pivot-value pivot-idx -- )
+  reach nth [ swap ] 2dip swap ! ( elim-idx tableau pivot-row pivot-value
+  [ v*n v- ] 2curry [ tuck ] dip change-nth ;
+
+: do-pivot-augmented ( tableau pivot-col pivot-row -- tableau )
+  over "augmented pivot col: %d\n" printf
+  [ 2 + ] bi@ ! adjust pivot row and col to the actual location in the tableau
+  [ dupd <column> [ over zero? [ 2drop f ] [ swap 2array ] if ] map-index [ ] filter ] dip
+  [ [ swap first = ] curry reject ] keep ! ( tableau row-indices pivot-row )
+  [ eliminate-row ] curry swapd reduce ;
+
 "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"
 parse-line
 [ dup basic-indices ] dip swapd
 build-tableau
 [ nip dimension second 2 - ] 2keep ! save original problem size
 augment-tableau
-! XXX add augmented rows to first row
 dup reach next-auxiliary [
-  ! ( tableau idx n -- )
   ! find a pivot column
   [ 2dup ] dip [ pivot-column-augmented ] keep
-  ! ( tableau idx col n -- )
-  "col: %d, n: %d\n" printf
-  ! pivot on (n, col), replace value in index set
+  [ swap set-nth-of ] 2keep ! update index set
+  [ swapd ] dip ! tuck idx under our working set
+  do-pivot-augmented
 ] when*
+.
