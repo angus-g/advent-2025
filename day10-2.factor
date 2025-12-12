@@ -166,17 +166,43 @@ IN: day10-2
 ! columns are { -1 0 <identity(n)> }
 : basic-cols ( idx -- cols )
   [ length ] keep
-  [ ] with map-harvest ;
+  [ rot
+    [ 2drop { } ]
+    [ swap identity-col { -1 0 } prepend ] if
+  ] with map-index harvest ;
+
+! return a sequence the same length as seq, where
+! f elements are increasing integers from 0
+! and t elements are now f
+: count-gaps ( seq -- seq )
+  dup 0 [ [ 1 + ] unless ] accumulate nip
+  [ swap [ drop f ] when ] 2map ;
+
+: append-cols ( tableau cols -- tableau )
+  flip [ [ unclip-last ] dip swap [ append ] dip suffix ] 2map ;
+
+! prefix all rows with 0
+! add the first row for the augmented problem
+: embed-tableau ( tableau -- tableau )
+  [ 0 prefix ] map
+  dup dimension second 1 - 0 <array> 1 prefix
+  prefix ;
 
 ! insert identity columns corresponding to the f entries of
 ! idx before the last column
 ! then the first row is { 1 0 ... 0 -1 ... -1 0 }
 ! and again prepend all rows with 0
-: augment-tableau ( idx tableau -- augmented )
-swap basic-cols
-;
+: augment-tableau ( idx tableau -- augmented idx' )
+  ! build the auxiliary columns for the basic feasible solution
+  swap [ basic-cols [ dup dimension second 2 - ] dip ] keep swapd
+  [ [ embed-tableau ] dip append-cols ]
+  [
+    [ count-gaps [ [ + ] [ drop f ] if* ] with map ] keep
+    [ or ] 2map
+  ] 2bi* ;
 
 "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"
 parse-line
 [ dup basic-indices ] dip swapd
 build-tableau
+augment-tableau . .
