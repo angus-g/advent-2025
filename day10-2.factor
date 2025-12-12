@@ -1,5 +1,5 @@
 USING: arrays columns kernel math math.matrices math.parser
-prettyprint sequences splitting ;
+math.vectors prettyprint ranges sequences sets splitting ;
 IN: day10-2
 
 ! minimise c^T x, where Ax = b
@@ -201,8 +201,31 @@ IN: day10-2
     [ or ] 2map
   ] 2bi* ;
 
+! get the next position in the index set corresponding to an auxiliary variable
+: next-auxiliary ( idx n -- n/f )
+  [ >= ] curry find drop ;
+
+! find a column in the non-basic set with index i non-zero
+! requires an augmented tableau
+! columns [ 2..cols(tableau)-1 ) \ idx
+:: pivot-column-augmented ( tableau idx n -- col )
+  tableau dimension second 3 - [0..b) idx diff :> nonbasic
+  nonbasic 2 v+n tableau <flipped> nths
+  n 2 + [ swap nth 1 = ] curry find drop
+  nonbasic nth ;
+
 "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}"
 parse-line
 [ dup basic-indices ] dip swapd
 build-tableau
-augment-tableau . .
+[ nip dimension second 2 - ] 2keep ! save original problem size
+augment-tableau
+! XXX add augmented rows to first row
+dup reach next-auxiliary [
+  ! ( tableau idx n -- )
+  ! find a pivot column
+  [ 2dup ] dip [ pivot-column-augmented ] keep
+  ! ( tableau idx col n -- )
+  "col: %d, n: %d\n" printf
+  ! pivot on (n, col), replace value in index set
+] when*
