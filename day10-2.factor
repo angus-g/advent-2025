@@ -194,6 +194,8 @@ IN: day10-2
 ! then the first row is { 1 0 ... 0 -1 ... -1 0 }
 ! and again prepend all rows with 0
 : augment-tableau ( idx tableau -- augmented idx' )
+  ! stash rows to add to the first row of the tableau
+  [ drop count-gaps [ ] filter 2 v+n ] 2keep
   ! build the auxiliary columns for the basic feasible solution
   swap [ basic-cols [ dup dimension second 2 - ] dip ] keep swapd
   [ [ embed-tableau ] dip append-cols ]
@@ -201,8 +203,13 @@ IN: day10-2
     [ count-gaps [ [ + ] [ drop f ] if* ] with map ] keep
     [ or ] 2map
   ] 2bi*
-  ! XXX add augmented rows to first row
-  ;
+  ! add auxiliary rows to first row
+  [
+    [
+      nths unclip [ v+ ] reduce
+    ] keep
+    unclip rot v+ prefix
+  ] dip ;
 
 ! get the next position in the index set corresponding to an auxiliary variable
 : next-auxiliary ( idx n -- n/f )
@@ -236,11 +243,23 @@ parse-line
 build-tableau
 [ nip dimension second 2 - ] 2keep ! save original problem size
 augment-tableau
+! ( orig-size tableau idx )
+! XXX change to while loop
 dup reach next-auxiliary [
   ! find a pivot column
   [ 2dup ] dip [ pivot-column-augmented ] keep
   [ swap set-nth-of ] 2keep ! update index set
   [ swapd ] dip ! tuck idx under our working set
   do-pivot-augmented
+  swap
 ] when*
-.
+over .
+dup reach next-auxiliary [
+  ! find a pivot column
+  [ 2dup ] dip [ pivot-column-augmented ] keep
+  [ swap set-nth-of ] 2keep ! update index set
+  [ swapd ] dip ! tuck idx under our working set
+  do-pivot-augmented
+  swap
+] when*
+over .
